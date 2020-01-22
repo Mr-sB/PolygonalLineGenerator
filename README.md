@@ -12,7 +12,7 @@ Generate polygonal line mesh.
 ![image](https://github.com/Mr-sB/PolygonalLineGenerator/blob/master/Screenshots/Example3.png)
 
 ## Note
-Only use to 2D, cannot support 2D.
+Only use to 2D, cannot support 3D.
 
 ## Thanks
 Thanks for mattatz/unity-triangulation2D to provide triangulation2D function. https://github.com/mattatz/unity-triangulation2D
