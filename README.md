@@ -15,4 +15,4 @@ Generate polygonal line mesh.
 Only use to 2D, cannot support 3D.
 
 ## Thanks
-Thanks for mattatz/unity-triangulation2D to provide triangulation2D function. https://github.com/mattatz/unity-triangulation2D
+Thanks for mattatz/unity-triangulation2D providing triangulation2D function. https://github.com/mattatz/unity-triangulation2D
