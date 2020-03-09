@@ -7,9 +7,9 @@ Generate polygonal line mesh.
 * Editable shape
 
 ## Effect
-![image](https://github.com/Mr-sB/PolygonalLineGenerator/blob/master/Screenshots/Example1.png)
-![image](https://github.com/Mr-sB/PolygonalLineGenerator/blob/master/Screenshots/Example2.png)
-![image](https://github.com/Mr-sB/PolygonalLineGenerator/blob/master/Screenshots/Example3.png)
+![image](/Screenshots/Example1.png)
+![image](/Screenshots/Example2.png)
+![image](/Screenshots/Example3.png)
 
 ## Note
 Only use to 2D, cannot support 3D.
