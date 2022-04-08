@@ -71,6 +71,7 @@ public class MeshGenerator : MonoBehaviour
 	private Quaternion mRotation;//横截面shape的旋转值
 	private List<Vector3> mVertices = new List<Vector3>();//所有顶点
 	private List<Vector2> mUVs = new List<Vector2>();//所有uv
+	private List<Vector3> mNormals = new List<Vector3>();//所有法线
 	private List<int> mTriangles = new List<int>();//所有三角面
 	private int[] mShapeTriangle;//横截面shape的三角面
 	private MeshFilter m_MeshFilter;
@@ -248,20 +249,20 @@ public class MeshGenerator : MonoBehaviour
 
 	public void RefreshMesh()
 	{
-		mMmesh.vertices = mVertices.ToArray();
-		mMmesh.triangles = mTriangles.ToArray();
-		mMmesh.uv = mUVs.ToArray();
+		mMmesh.SetVertices(mVertices);
+		mMmesh.SetTriangles(mTriangles, 0);
+		mMmesh.SetUVs(0, mUVs);
 		//自动平滑法线
 		mMmesh.RecalculateNormals();
 		//uv分界处有两个顶点，自动平滑的法线会出现两个方向。手动合成为一个方向
-		var normals = mMmesh.normals;
-		for (int index = mShapeVerticesLength, len = normals.Length - mShapeVerticesLength; index < len; index += mRealShapeVerticesLength)
+		mMmesh.GetNormals(mNormals);
+		for (int index = mShapeVerticesLength, count = mNormals.Count - mShapeVerticesLength; index < count; index += mRealShapeVerticesLength)
 		{
-			var normal = normals[index] + normals[index + mShapeVerticesLength];
+			var normal = mNormals[index] + mNormals[index + mShapeVerticesLength];
 			normal.Normalize();
-			normals[index] = normals[index + mShapeVerticesLength] = normal;
+			mNormals[index] = mNormals[index + mShapeVerticesLength] = normal;
 		}
-		mMmesh.normals = normals;
+		mMmesh.SetNormals(mNormals);
 	}
 	
 	[ContextMenu("GenerateAll")]
@@ -272,6 +273,7 @@ public class MeshGenerator : MonoBehaviour
 		mVertices.Clear();
 		mTriangles.Clear();
 		mUVs.Clear();
+		mNormals.Clear();
 		for (int i = 0, count = PointInfos.Count; i < count; i++)
 			Generate(i);
 		RefreshMesh();
@@ -285,6 +287,7 @@ public class MeshGenerator : MonoBehaviour
 		mVertices.Clear();
 		mTriangles.Clear();
 		mUVs.Clear();
+		mNormals.Clear();
 		Length = 0;
 		mMmesh.triangles = null;//避免顶点数不满足三角面数产生报错
 		RefreshMesh();
