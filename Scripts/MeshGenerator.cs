@@ -9,14 +9,29 @@ using UnityEngine;
 public class MeshGenerator : MonoBehaviour
 {
 	[Serializable]
-	public struct PointInfo
+	public class PointInfo
 	{
 		public Vector3 Point;
+		//不需要外部赋值
+		public Vector3 TangentForward;//切面前方方向向量
+		public Vector3 TangentUp;//切面上方方向向量
 		public float Length;//距离起点的路径长度
-
+		
+		public PointInfo() { }
+		
+		public PointInfo(Vector3 point)
+		{
+			Point = point;
+			TangentForward = Vector3.forward;
+			TangentUp = Vector3.up;
+			Length = 0;
+		}
+		
 		public PointInfo(Vector3 point, float length)
 		{
 			Point = point;
+			TangentForward = Vector3.forward;
+			TangentUp = Vector3.up;
 			Length = length;
 		}
 	}
@@ -79,15 +94,8 @@ public class MeshGenerator : MonoBehaviour
 	private int mRealShapeVerticesLength;//真实的横截面顶点数。因为有一个uv缝，需要多复制一个顶点
 	private float mUVFactor;//一米对应多少uv
 	private Vector4 mShapeUVMinMax = Vector4.zero;//xMin,xMax,yMin,yMax
-	[Header("Do not edit!")]
-	[SerializeField] private float mLength;
-
-
-	public float Length
-	{
-		private set => mLength = value;
-		get => mLength;
-	}
+	
+	public float PathLength => PointInfos.Count > 0 ? PointInfos[PointInfos.Count - 1].Length : 0;
 
 
 	private void Awake()
@@ -185,10 +193,16 @@ public class MeshGenerator : MonoBehaviour
 
 	public void Add(Vector3 point, bool refresh = true)
 	{
+		var lastCount = PointInfos.Count;
 		bool addExtra = AddPoint(point);
-
 		if (PointInfos.Count < 2) return;
-		
+		if (lastCount == 2)
+		{
+			//全部重新计算
+			GenerateAll(refresh);
+			return;
+		}
+
 		if (PointInfos.Count > 2)
 		{
 			//去除最后一圈顶点
@@ -199,18 +213,11 @@ public class MeshGenerator : MonoBehaviour
 		}
 		
 		if (addExtra)
-		{
 			//计算最后三个点
 			Generate(PointInfos.Count - 3);
-			Generate(PointInfos.Count - 2);
-			Generate(PointInfos.Count - 1);
-		}
-		else
-		{
-			//计算最后两个点
-			Generate(PointInfos.Count - 2);
-			Generate(PointInfos.Count - 1);
-		}
+		//计算最后两个点
+		Generate(PointInfos.Count - 2);
+		Generate(PointInfos.Count - 1);
 		
 		if (refresh)
 			RefreshMesh();
@@ -221,18 +228,17 @@ public class MeshGenerator : MonoBehaviour
 		bool addExtra = false;
 		if (PointInfos.Count > 1)
 		{
-			Vector3 v1 = PointInfos[PointInfos.Count - 2].Point - PointInfos[PointInfos.Count - 1].Point;
-			Vector3 v2 = point - PointInfos[PointInfos.Count - 1].Point;
-			float angle = Vector3.SignedAngle(v1, v2, Vector3.up);
+			var lastPointInfo = PointInfos[PointInfos.Count - 1];
+			Vector3 v1 = point - lastPointInfo.Point;
+			Vector3 v2 = PointInfos[PointInfos.Count - 2].Point - lastPointInfo.Point;
+			float angle = Vector3.Angle(v1, v2);
 			//拐角太锐，增加一个拐点
-			if (Mathf.Abs(angle) <= mAngleThreshold)
+			if (angle <= mAngleThreshold)
 			{
 				addExtra = true;
 				//往最新点的方向靠
-				Vector3 moveDir = Vector3.Cross(v1 + v2, Vector3.up).normalized;
-				if (angle > 0)
-					moveDir = -moveDir;
-				Vector3 p = PointInfos[PointInfos.Count - 1].Point + moveDir * (Vector3.Dot(moveDir, v2) * Mathf.Sin(Mathf.Deg2Rad * Mathf.Abs(angle)));
+				Vector3 moveDir = Vector3.Cross(v1 + v2, Vector3.Cross(v1, v2)).normalized;
+				Vector3 p = lastPointInfo.Point + moveDir * (Vector3.Dot(moveDir, v2) * Mathf.Sin(Mathf.Deg2Rad * angle));
 				AddPointInternal(p);
 			}
 		}
@@ -242,9 +248,14 @@ public class MeshGenerator : MonoBehaviour
 
 	private void AddPointInternal(Vector3 point)
 	{
-		if (PointInfos.Count >= 1)
-			Length += Vector3.Distance(PointInfos[PointInfos.Count - 1].Point, point);
-		PointInfos.Add(new PointInfo(point, Length));
+		//添加的时候就进行计算，避免还没有Generate的时候访问长度出错
+		float length = 0;
+		if (PointInfos.Count > 0)
+		{
+			var lastPointInfo = PointInfos[PointInfos.Count - 1];
+			length = lastPointInfo.Length + Vector3.Distance(lastPointInfo.Point, point);
+		}
+		PointInfos.Add(new PointInfo(point, length));
 	}
 
 	public void RefreshMesh()
@@ -267,7 +278,7 @@ public class MeshGenerator : MonoBehaviour
 	
 	[ContextMenu("GenerateAll")]
 //	[Button]
-	public void GenerateAll()
+	public void GenerateAll(bool refresh = true)
 	{
 		if(PointInfos.Count < 2) return;
 		mVertices.Clear();
@@ -276,7 +287,8 @@ public class MeshGenerator : MonoBehaviour
 		mNormals.Clear();
 		for (int i = 0, count = PointInfos.Count; i < count; i++)
 			Generate(i);
-		RefreshMesh();
+		if (refresh)
+			RefreshMesh();
 	}
 
 	[ContextMenu("Clear")]
@@ -288,57 +300,72 @@ public class MeshGenerator : MonoBehaviour
 		mTriangles.Clear();
 		mUVs.Clear();
 		mNormals.Clear();
-		Length = 0;
-		mMmesh.triangles = null;//避免顶点数不满足三角面数产生报错
+		//清空三角面，避免顶点数不满足三角面数产生报错
+		mMmesh.SetTriangles(mTriangles, 0);
 		RefreshMesh();
 	}
 	
 	private void Generate(int index)
 	{
+		var pointInfo = PointInfos[index];
 		if (index == 0)
 		{
+			pointInfo.Length = 0;
 			//计算旋转
-			Quaternion rot = Quaternion.LookRotation(PointInfos[1].Point - PointInfos[0].Point);
+			Quaternion rot = CalcPointInfo(pointInfo, Vector3.forward, PointInfos[1].Point - PointInfos[0].Point, Vector3.up);
 			//添加顶点
-			AddForwardVerticesAndUVs(PointInfos[0], rot);
-			AddMiddleVerticesAndUVs(PointInfos[0], rot);
+			AddForwardVerticesAndUVs(pointInfo, rot);
+			AddMiddleVerticesAndUVs(pointInfo, rot);
 			//添加三角面
 			AddForwardPolygonTriangles();
 		}
-		else if (index == PointInfos.Count - 1)
-		{
-			//计算旋转
-			Quaternion rot = Quaternion.LookRotation(PointInfos[index].Point - PointInfos[index - 1].Point);
-			//添加顶点
-			AddMiddleVerticesAndUVs(PointInfos[index], rot);
-			AddBackVerticesAndUVs(PointInfos[index], rot);
-			//添加三角面
-			AddMiddlePolygonTriangles((index - 1) * mRealShapeVerticesLength + mShapeVerticesLength);
-			AddBackPolygonTriangles((index + 1) * mRealShapeVerticesLength + mShapeVerticesLength);
-		}
 		else
 		{
-			//计算旋转
-			var v1 = (PointInfos[index - 1].Point - PointInfos[index].Point).normalized;
-			var v2 = (PointInfos[index + 1].Point - PointInfos[index].Point).normalized;
-			//切线
-			var vv = Vector3.Cross(v1 + v2, Vector3.up);
-			float angle = Vector3.Angle(PointInfos[index].Point - PointInfos[index - 1].Point, vv);
-			//防止旋转出错
-			var value = Vector3.SignedAngle(PointInfos[index - 1].Point - PointInfos[index].Point, PointInfos[index].Point - PointInfos[index + 1].Point, Vector3.up);
-			Quaternion rot;
-			if(Mathf.Abs(value) <= 1)
-				rot = Quaternion.LookRotation(PointInfos[index].Point - PointInfos[index - 1].Point);
+			//计算长度
+			var lastPointInfo = PointInfos[index - 1];
+			pointInfo.Length = lastPointInfo.Length + Vector3.Distance(lastPointInfo.Point, pointInfo.Point);
+			if (index == PointInfos.Count - 1)
+			{
+				//计算旋转
+				Quaternion rot = CalcPointInfo(pointInfo, lastPointInfo.TangentForward, PointInfos[index].Point - PointInfos[index - 1].Point, lastPointInfo.TangentUp);
+				//添加顶点
+				AddMiddleVerticesAndUVs(pointInfo, rot);
+				AddBackVerticesAndUVs(pointInfo, rot);
+				//添加三角面
+				AddMiddlePolygonTriangles((index - 1) * mRealShapeVerticesLength + mShapeVerticesLength);
+				AddBackPolygonTriangles((index + 1) * mRealShapeVerticesLength + mShapeVerticesLength);
+			}
 			else
 			{
-				Vector3 form = value > 0 ? Vector3.forward : Vector3.back;
-				rot = Quaternion.Euler(new Vector3(0, Vector3.SignedAngle(form, vv, Vector3.up), 0));
+				var nextPointInfo = PointInfos[index + 1];
+				//计算旋转
+				Vector3 v1 = (nextPointInfo.Point - pointInfo.Point).normalized;
+				Vector3 v2 = (lastPointInfo.Point - pointInfo.Point).normalized;
+				Vector3 forward = Vector3.Cross(v1 + v2, Vector3.Cross(v1, v2)).normalized;
+				if (forward == Vector3.zero)
+					forward = -v2;
+				Quaternion rot = CalcPointInfo(pointInfo, lastPointInfo.TangentForward, forward, lastPointInfo.TangentUp);
+
+				//返回到正常坐标系
+				Quaternion inverseRot = Quaternion.Inverse(rot);
+				var value = Quaternion.FromToRotation(inverseRot * -v2, inverseRot * forward).eulerAngles;
+				//x代表y缩放，y代表x缩放
+				var angle = new Vector2(value.y, value.x);
+				//添加顶点
+				AddMiddleVerticesAndUVs(pointInfo, rot, angle);
+				//添加三角面
+				AddMiddlePolygonTriangles((index - 1) * mRealShapeVerticesLength + mShapeVerticesLength);
 			}
-			//添加顶点
-			AddMiddleVerticesAndUVs(PointInfos[index], rot, angle);
-			//添加三角面
-			AddMiddlePolygonTriangles((index - 1) * mRealShapeVerticesLength + mShapeVerticesLength);
 		}
+	}
+	
+	private Quaternion CalcPointInfo(PointInfo pointInfo, Vector3 lastForward, Vector3 forward, Vector3 lastUp)
+	{
+		Quaternion rot = Quaternion.FromToRotation(lastForward, forward);
+		Vector3 up = rot * lastUp;
+		pointInfo.TangentForward = forward;
+		pointInfo.TangentUp = up;
+		return Quaternion.LookRotation(forward, up);
 	}
 
 	private void AddForwardPolygonTriangles()
@@ -394,7 +421,7 @@ public class MeshGenerator : MonoBehaviour
 		}
 	}
 	
-	private void AddMiddleVerticesAndUVs(PointInfo pointInfo, Quaternion rot, float? angle = null)
+	private void AddMiddleVerticesAndUVs(PointInfo pointInfo, Quaternion rot, Vector2? angle = null)
 	{
 		for (int i = 0; i < mRealShapeVerticesLength; i++)
 		{
@@ -402,9 +429,12 @@ public class MeshGenerator : MonoBehaviour
 			//缩放顶点
 			if (angle.HasValue)
 			{
-				var factor = Mathf.Abs(Mathf.Cos(Mathf.Deg2Rad * angle.Value));
+				var factor = Mathf.Abs(Mathf.Cos(Mathf.Deg2Rad * angle.Value.x));
 				if (Mathf.Abs(factor) > 1e-4)
 					vertex.x /= factor;
+				factor = Mathf.Abs(Mathf.Cos(Mathf.Deg2Rad * angle.Value.y));
+				if (Mathf.Abs(factor) > 1e-4)
+					vertex.y /= factor;
 			}
 			mVertices.Add(pointInfo.Point + rot * vertex);
 			var uv = mShapeEdgeUVs[i];
