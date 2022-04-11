@@ -10,9 +10,10 @@ Generate polygonal line mesh.
 ![image](/Screenshots/Example1.png)
 ![image](/Screenshots/Example2.png)
 ![image](/Screenshots/Example3.png)
+![image](/Screenshots/Example4.png)
 
 ## Note
-Only use to 2D, cannot support 3D.
+Support 3D NOW!
 
 ## Thanks
 Thanks for mattatz/unity-triangulation2D providing triangulation2D function. https://github.com/mattatz/unity-triangulation2D
