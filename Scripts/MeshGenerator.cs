@@ -200,7 +200,7 @@ public class MeshGenerator : MonoBehaviour
 		{
 			//去除最后一圈顶点
 			mVertices.RemoveRange(mVertices.Count - (mRealShapeVerticesLength + mShapeVerticesLength), mRealShapeVerticesLength + mShapeVerticesLength);
-			//两个三角面
+			//最后一圈的三角面
 			mTriangles.RemoveRange(mTriangles.Count - (mShapeVerticesLength - 2) * 3, (mShapeVerticesLength - 2) * 3);
 			mUVs.RemoveRange(mUVs.Count - (mRealShapeVerticesLength + mShapeVerticesLength), mRealShapeVerticesLength + mShapeVerticesLength);
 		}
