@@ -193,15 +193,8 @@ public class MeshGenerator : MonoBehaviour
 
 	public void Add(Vector3 point, bool refresh = true)
 	{
-		var lastCount = PointInfos.Count;
 		bool addExtra = AddPoint(point);
 		if (PointInfos.Count < 2) return;
-		if (lastCount == 2)
-		{
-			//全部重新计算
-			GenerateAll(refresh);
-			return;
-		}
 
 		if (PointInfos.Count > 2)
 		{
