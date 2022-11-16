@@ -7,10 +7,10 @@ Generate polygonal line mesh.
 * Editable shape
 
 ## Effect
-![image](/Screenshots/Example1.png)
-![image](/Screenshots/Example2.png)
-![image](/Screenshots/Example3.png)
-![image](/Screenshots/Example4.png)
+![image](Screenshots/Example1.png)
+![image](Screenshots/Example2.png)
+![image](Screenshots/Example3.png)
+![image](Screenshots/Example4.png)
 
 ## Note
 Support 3D NOW!
